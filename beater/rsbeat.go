@@ -11,7 +11,7 @@ import (
 	"github.com/elastic/beats/libbeat/publisher"
 
 	"github.com/garyburd/redigo/redis"
-	"github.com/yourdream/rsbeat/config"
+	"github.com/osiriswd/rsbeat/config"
 )
 
 type Rsbeat struct {
