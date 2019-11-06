@@ -1,5 +1,12 @@
 [![Build Status](https://travis-ci.org/Yourdream/rsbeat.svg?branch=master)](https://travis-ci.org/Yourdream/rsbeat)
 
+Note
+Use old version of elastic/beats/libbeat/publisher
+
+git clone github.com/elastic/beats
+cd github.com/elastic/beats
+git checkout v5.3.1
+
 Name
 ====
 rsbeat - The Beat used to collect and analyze redis slow log.
