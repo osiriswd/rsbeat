@@ -2,6 +2,7 @@ package beater
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/elastic/beats/libbeat/beat"
@@ -77,6 +78,8 @@ type itemLog struct {
 	cmd       string
 	key       string
 	args      []string
+	clientinfo string
+	clientname string
 }
 
 func (bt *Rsbeat) redisc(beatname string, init bool, c redis.Conn, ipPort string) {
@@ -97,7 +100,7 @@ func (bt *Rsbeat) redisc(beatname string, init bool, c redis.Conn, ipPort string
 		rp, _ := redis.Values(i, err)
 		var itemLog itemLog
 		var args []string
-		redis.Scan(rp, &itemLog.slowId, &itemLog.timestamp, &itemLog.duration, &args)
+		redis.Scan(rp, &itemLog.slowId, &itemLog.timestamp, &itemLog.duration, &args, &itemLog.clientinfo, &itemLog.clientname)
 		argsLen := len(args)
 		if argsLen >= 1 {
 			itemLog.cmd = args[0]
@@ -121,6 +124,9 @@ func (bt *Rsbeat) redisc(beatname string, init bool, c redis.Conn, ipPort string
 			"args":           itemLog.args,
 			"duration":       itemLog.duration,
 			"ip_port":        ipPort,
+			"clientip":       s[0],
+			"clientport":     s[1],
+			"clientname":     itemLog.clientname,
 		}
 
 		bt.client.PublishEvent(event)
