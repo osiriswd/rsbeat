@@ -1,6 +1,7 @@
 package beater
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -31,9 +32,10 @@ func New(b *beat.Beat, cfg *common.Config) (beat.Beater, error) {
 
 	logp.Info("config.Redis: %v", config.Redis)
 	logp.Info("config.slowerThan: %v", config.SlowerThan)
+	logp.Info("config.password: %v", config.Password)
 	var poolList = make(map[string]*redis.Pool)
 	for _, ipPort := range config.Redis {
-		poolList[ipPort] = poolInit(ipPort, config.SlowerThan)
+		poolList[ipPort] = poolInit(ipPort, config.SlowerThan, config.Password)
 		logp.Info("redis: %s", ipPort)
 	}
 
@@ -72,12 +74,12 @@ func (bt *Rsbeat) Stop() {
 }
 
 type itemLog struct {
-	slowId    int
-	timestamp int64
-	duration  int
-	cmd       string
-	key       string
-	args      []string
+	slowId     int
+	timestamp  int64
+	duration   int
+	cmd        string
+	key        string
+	args       string
 	clientinfo string
 	clientname string
 }
@@ -109,11 +111,13 @@ func (bt *Rsbeat) redisc(beatname string, init bool, c redis.Conn, ipPort string
 			itemLog.key = args[1]
 		}
 		if argsLen >= 3 {
-			itemLog.args = args[2:]
+			g, _ := json.Marshal(args[2:])
+			itemLog.args = string(g)
 		}
 		logp.Info("timestamp is: %d", itemLog.timestamp)
 		t := time.Unix(itemLog.timestamp, 0).UTC()
 
+		s := strings.Split(itemLog.clientinfo, ":")
 		event := common.MapStr{
 			"type":           beatname,
 			"@timestamp":     common.Time(time.Now()),
@@ -133,7 +137,7 @@ func (bt *Rsbeat) redisc(beatname string, init bool, c redis.Conn, ipPort string
 	}
 }
 
-func poolInit(server string, slowerThan int) *redis.Pool {
+func poolInit(server string, slowerThan int, password string) *redis.Pool {
 	return &redis.Pool{
 		MaxIdle:     3,
 		MaxActive:   3,
@@ -144,9 +148,17 @@ func poolInit(server string, slowerThan int) *redis.Pool {
 				logp.Err("redis: error occurs when connect %v", err.Error())
 				return nil, err
 			}
+			if password != "" {
+				if _, err := c.Do("AUTH", password); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
 			c.Send("MULTI")
-			c.Send("CONFIG", "SET", "slowlog-log-slower-than", slowerThan)
-			c.Send("CONFIG", "SET", "slowlog-max-len", 500)
+			if slowerThan > 0 {
+				c.Send("CONFIG", "SET", "slowlog-log-slower-than", slowerThan)
+				c.Send("CONFIG", "SET", "slowlog-max-len", 500)
+			}
 			c.Send("SLOWLOG", "RESET")
 			r, err := c.Do("EXEC")
 
